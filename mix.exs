@@ -24,9 +24,8 @@ defmodule Typed.MixProject do
       # This option is only needed when you don't want to use the OTP application name
       name: "typed",
       # These are the default files included in the package
-      files: ~w(lib priv .formatter.exs mix.exs README* readme* LICENSE*
-                license* CHANGELOG* changelog* src),
-      licenses: ["Apache-2.0"],
+      files: ~w(lib .formatter.exs mix.exs README* LICENSE* CHANGELOG*),
+      licenses: ["MIT"],
       links: %{"GitHub" => "https://github.com/andridus/typed"}
     ]
   end
