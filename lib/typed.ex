@@ -9,8 +9,16 @@ defmodule Typed do
     end
   end
 
+  defmacro defpt({:"::", _, [{fun_name, env, args}, type]}) do
+    create_function(:defp, {fun_name, env, args}, type, nil)
+  end
+
   defmacro defpt({:"::", _, [{fun_name, env, args}, type]}, do: block) do
     create_function(:defp, {fun_name, env, args}, type, block)
+  end
+
+  defmacro deft({:"::", _, [{fun_name, env, args}, type]}) do
+    create_function(:def, {fun_name, env, args}, type, nil)
   end
 
   defmacro deft({:"::", _, [{fun_name, env, args}, type]}, do: block) do
@@ -20,15 +28,47 @@ defmodule Typed do
   defp create_function(fns, {fun_name, env, args}, type, block) do
     {args, types} =
       Macro.prewalk(args, [], fn
-        {key, type}, acc -> {{key, [], nil}, [parse_type(type) | acc]}
-        ast, acc -> {ast, acc}
+        {key, type}, acc ->
+          case type do
+            {:\\, env, [type, opt]} ->
+              {{:\\, env, [{key, [], nil}, opt]}, [{parse_type(type), :__NIL__} | acc]}
+
+            _ ->
+              {{key, [], nil}, [{parse_type(type), :__REQUIRED__} | acc]}
+          end
+
+        ast, acc ->
+          {ast, acc}
       end)
 
-    args = args |> List.flatten()
-    spec = {:@, [], [{:spec, [], [{:"::", [], [{fun_name, env, types}, parse_type(type)]}]}]}
+    types =
+      types
+      |> Enum.reverse()
 
-    case fns do
-      :def ->
+    total =
+      types
+      |> Enum.reduce(0, fn
+        {_, :__NIL__}, acc -> acc + 1
+        _, acc -> acc
+      end)
+
+    types = total..0 |> Enum.map(fn x -> remove_nils(types, x) end)
+    args = args |> List.flatten()
+
+    spec =
+      Enum.map(types, fn t ->
+        {:@, [], [{:spec, [], [{:"::", [], [{fun_name, env, t}, parse_type(type)]}]}]}
+      end)
+
+    case {fns, block} do
+      {:def, nil} ->
+        quote do
+          unquote(spec)
+
+          def unquote(fun_name)(unquote_splicing(args))
+        end
+
+      {:def, block} ->
         quote do
           unquote(spec)
 
@@ -47,6 +87,15 @@ defmodule Typed do
         end
     end
   end
+
+  def remove_nils(_old_items, _num, _new_items \\ [])
+  def remove_nils(items, 0, new_items), do: new_items ++ Enum.map(items, fn {i, _} -> i end)
+
+  def remove_nils([{_item, :__NIL__} | items], num, new_items),
+    do: remove_nils(items, num - 1, new_items)
+
+  def remove_nils([{item, _} | items], num, new_items),
+    do: remove_nils(items, num, [item | new_items])
 
   def parse_type(:Atom), do: :atom
   def parse_type(:Float), do: :float
@@ -97,4 +146,8 @@ defmodule Typed do
 
   def parse_type({{:., _, _}, _, _} = type), do: type
   def parse_type(custom_type), do: custom_type
+
+  def reload(bool \\ false) do
+    IEx.Helpers.recompile(force: bool)
+  end
 end

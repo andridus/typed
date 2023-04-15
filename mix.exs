@@ -5,9 +5,12 @@ defmodule Typed.MixProject do
     [
       name: "Typed",
       app: :typed,
-      version: "0.1.0",
+      version: "0.2.0",
       elixir: "~> 1.14",
+      compilers: Mix.compilers() ++ [:typed],
       start_permanent: Mix.env() == :prod,
+      dialyzer: [ignore_warnings: ".dialyzer_ignore.exs"],
+      # dialyzer: [flags: ["-Wunmatched_returns", :error_handling, :underspecs]],
       description: description(),
       package: package(),
       deps: deps(),
@@ -37,6 +40,9 @@ defmodule Typed.MixProject do
 
   # Run "mix help deps" to learn about dependencies.
   defp deps do
-    [{:ex_doc, "~> 0.14", only: :dev, runtime: false}]
+    [
+      {:ex_doc, "~> 0.14", only: :dev, runtime: false},
+      {:dialyxir, "~> 1.3", runtime: false}
+    ]
   end
 end
